@@ -1,0 +1,9 @@
+# Streamlit app configuration for bill_agent.
+# "viewer" hides the Deploy button and all developer menu entries --
+# the operator only sees the app itself.
+
+[client]
+toolbarMode = "viewer"
+
+[browser]
+gatherUsageStats = false
