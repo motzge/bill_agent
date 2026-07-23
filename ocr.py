@@ -1,9 +1,9 @@
 """OCR module for bill_agent.
 
-Deliberately isolated: this is the ONLY file that imports pytesseract,
-pypdfium2 and PIL. When the pipeline moves to the Claude API (native
-document input), this file gets deleted along with its single call site
-in main.py -- nothing else depends on it.
+Deliberately isolated: this is the ONLY file that imports pytesseract and
+pypdfium2 (PIL is shared with preprocess). When the pipeline moves to the
+Claude API (native document input), this file gets deleted along with its
+single call site in main.py -- nothing else depends on it.
 
 System requirement (not pip-installable): the Tesseract binary plus the
 German language pack. Linux: apt install tesseract-ocr tesseract-ocr-deu.
@@ -19,6 +19,8 @@ import pytesseract
 from PIL import Image
 
 from models import InvoiceSource, SourceKind
+from ocr_setup import configure_tesseract
+from preprocess import OCR_CONFIG, prepare_for_ocr
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,16 @@ class OcrError(RuntimeError):
 
 
 def assert_tesseract_available() -> None:
-    """Fail loud at startup instead of at invoice #1. Call once from main."""
+    """Locate Tesseract and fail loud at startup instead of at invoice #1.
+
+    Resolving the binary happens here so every entry point gets it from one
+    call; on Windows the installer often leaves it off the PATH.
+    """
+    try:
+        configure_tesseract()
+    except OSError as exc:
+        raise OcrError(str(exc)) from exc
+
     try:
         version = pytesseract.get_tesseract_version()
     except pytesseract.TesseractNotFoundError as exc:
@@ -72,7 +83,10 @@ def _ocr_pdf(source: InvoiceSource) -> str:
     try:
         for number, page in enumerate(pdf, start=1):
             image = page.render(scale=RENDER_SCALE).to_pil()
-            pages_text.append(pytesseract.image_to_string(image, lang=OCR_LANG))
+            prepared = prepare_for_ocr(image)
+            pages_text.append(
+                pytesseract.image_to_string(prepared, lang=OCR_LANG, config=OCR_CONFIG)
+            )
             logger.debug("OCR page %d of %s done", number, source.path.name)
     finally:
         pdf.close()  #pdfium holds native resources; never rely on GC here
@@ -81,4 +95,5 @@ def _ocr_pdf(source: InvoiceSource) -> str:
 
 def _ocr_image(source: InvoiceSource) -> str:
     with Image.open(source.path) as image:
-        return pytesseract.image_to_string(image, lang=OCR_LANG)
+        prepared = prepare_for_ocr(image)
+    return pytesseract.image_to_string(prepared, lang=OCR_LANG, config=OCR_CONFIG)
