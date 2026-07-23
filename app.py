@@ -29,6 +29,21 @@ from llm import LlmError, create_provider
 from logging_setup import new_run_id, setup_logging
 from main import run_batch
 from ocr import OcrError, assert_tesseract_available
+from ocr_setup import configure_tesseract
+from ocr_setup import available_languages, configure_tesseract
+
+
+#Tesseract must be resolved before any OCR call, but rendering has to wait
+#for st.set_page_config below - so we only collect the state here.
+try:
+    TESSERACT_BINARY = configure_tesseract()
+    TESSERACT_LANGUAGES = available_languages()
+    TESSERACT_ERROR = None
+except OSError as exc:
+    TESSERACT_BINARY = None
+    TESSERACT_LANGUAGES = []
+    TESSERACT_ERROR = str(exc)
+
 
 OUTCOME_LABELS = {
     "booked": "gebucht",
@@ -63,6 +78,19 @@ st.set_page_config(page_title="Rechnungsverarbeitung", page_icon="🧾", layout=
 ensure_directories()
 
 st.title("🧾 Rechnungsverarbeitung")
+
+#OCR status: a single line, loud only when something is actually broken
+if TESSERACT_ERROR:
+    st.error(TESSERACT_ERROR)
+elif "deu" not in TESSERACT_LANGUAGES:
+    st.warning(
+        "Tesseract wurde gefunden, aber ohne deutsches Sprachpaket. "
+        f"Verfügbar: {', '.join(TESSERACT_LANGUAGES) or 'keines'}. "
+        "Bitte den Tesseract-Installer erneut ausführen und unter "
+        "'Additional language data' Deutsch anhaken."
+    )
+else:
+    st.caption(f"OCR bereit · {TESSERACT_BINARY}")
 
 #one-time API key setup (only in Claude mode, only while key missing)
 if needs_api_key():
