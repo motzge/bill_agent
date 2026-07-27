@@ -43,6 +43,7 @@ from llm import LLMProvider, LlmError, create_provider
 from logging_setup import new_run_id, setup_logging
 from models import InvoiceData, InvoiceSource, SourceKind, invoice_from_llm_output
 from ocr import OcrError, assert_tesseract_available, extract_text
+from ocr_setup import configure_tesseract
 from validation import validate
 
 logger = logging.getLogger(__name__)

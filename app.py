@@ -198,7 +198,7 @@ if st.button(
 st.divider()
 st.subheader("Manuelle Prüfung")
 if not review_pairs:
-    st.caption("Nichts zu prüfen. 👍")
+    st.caption("Nichts zu prüfen.")
 for reason_file, original in review_pairs:
     with st.expander(original.name):
         st.text(reason_file.read_text(encoding="utf-8"))
